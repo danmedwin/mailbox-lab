@@ -1,0 +1,11 @@
+import base64
+tpl = open("lab-template.html").read()
+ot = open("lib/opentype.min.js").read()
+font_b64 = base64.b64encode(open("/Users/medwin/Library/Fonts/AmaticSC-Bold.ttf","rb").read()).decode()
+out = (tpl.replace("/*__OPENTYPE__*/", ot)
+          .replace("__AMATIC_B64__", font_b64)
+          .replace("__STAR_D__", open("star_d.txt").read().strip())
+          .replace("__DOOR_SC__", open("door_sc.txt").read().strip())
+          .replace("__DOOR_EN__", open("door_en.txt").read().strip()))
+open("mailbox-lab.html","w").write(out)
+print("built mailbox-lab.html:", len(out), "bytes")

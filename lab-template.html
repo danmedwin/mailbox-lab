@@ -1,0 +1,1373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mailbox Lab · Jewish Life Board</title>
+<style>
+  /* ============ Design tokens — lifted from the Jewish Life Board Direction D language ============ */
+  :root {
+    --ink: #191919;
+    --paper: #FAF7F0;
+    --panel: #FFFFFF;
+    --honey: #FCE46C;
+    --brick: #CC0C24;
+    --sky: #24B4E4;
+    --leaf: #84CC3C;
+    --tan: #CC9C6C;
+    --wood: #E8C99A;
+    --gray-400: #9C968A;
+    --gray-600: #6B665C;
+    --space-xs: 4px; --space-sm: 8px; --space-md: 16px; --space-lg: 24px; --space-xl: 40px;
+    --font-title: "Amatic SC", "AmaticEmbedded", cursive;
+    --font-label: "Patrick Hand", "Comic Sans MS", cursive;
+    --font-num: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: var(--font-label);
+    background: var(--paper);
+    color: var(--ink);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  @font-face {
+    font-family: "AmaticEmbedded";
+    src: url(data:font/ttf;base64,__AMATIC_B64__) format("truetype");
+    font-weight: bold;
+  }
+
+  header {
+    display: flex; align-items: baseline; gap: var(--space-md);
+    padding: 10px var(--space-lg) 6px;
+    border-bottom: 3px solid var(--ink);
+    background: var(--panel);
+    flex: 0 0 auto;
+  }
+  header h1 { font-family: var(--font-title); font-size: 34px; font-weight: bold; letter-spacing: 1px; }
+  header .sub { color: var(--gray-600); font-size: 15px; }
+  header .spacer { flex: 1; }
+  header .machine { font-family: var(--font-num); font-size: 12px; color: var(--gray-600); }
+
+  .main { flex: 1; display: flex; min-height: 0; }
+
+  /* ============ Sidebar controls ============ */
+  aside {
+    width: 316px; flex: 0 0 316px;
+    overflow-y: auto;
+    padding: var(--space-md);
+    border-right: 2px solid var(--ink);
+    background: var(--panel);
+  }
+  .group {
+    margin-bottom: var(--space-md);
+    border: 2px solid var(--ink);
+    /* the board's wobbly-border signature */
+    border-radius: 12px 6px 14px 8px / 8px 14px 6px 12px;
+    padding: 10px 12px 12px;
+    background: var(--panel);
+  }
+  .group h2 {
+    font-family: var(--font-title); font-size: 24px; font-weight: bold;
+    margin-bottom: 6px;
+    padding: 0 6px; display: inline-block;
+    background: var(--honey);
+    border-radius: 6px 10px 4px 8px / 8px 4px 10px 6px;
+  }
+  .row { display: flex; align-items: center; gap: 8px; margin: 7px 0; }
+  .row label { flex: 1; font-size: 15px; line-height: 1.15; }
+  .row input[type=range] { flex: 0 0 76px; min-width: 0; accent-color: var(--brick); }
+  .row input[type=number]::-webkit-outer-spin-button,
+  .row input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .row input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+  .row input[type=number], .row input[type=text] {
+    flex: 0 0 52px; width: 52px;
+    font-family: var(--font-num); font-size: 13px;
+    padding: 3px 4px; border: 1.5px solid var(--ink); border-radius: 5px;
+    background: var(--paper); color: var(--ink);
+  }
+  .row input[type=text] { flex: 1 1 auto; width: auto; }
+  .row input[type=checkbox] { width: 17px; height: 17px; accent-color: var(--brick); }
+  .row select {
+    flex: 0 0 78px; font-family: var(--font-label); font-size: 14px;
+    padding: 3px 4px; border: 1.5px solid var(--ink); border-radius: 5px;
+    background: var(--paper); color: var(--ink);
+  }
+  .row .unit { font-family: var(--font-num); font-size: 11px; color: var(--gray-600); width: 20px; }
+  input:focus-visible, button:focus-visible { outline: 2.5px solid var(--sky); outline-offset: 2px; }
+
+  #warnings { margin-bottom: var(--space-md); }
+  .warn {
+    border: 2px solid var(--brick); color: var(--brick);
+    border-radius: 10px 5px 12px 7px / 7px 12px 5px 10px;
+    padding: 6px 10px; font-size: 14px; margin-bottom: 6px; background: #FFF5F5;
+  }
+  .okay {
+    border: 2px solid var(--leaf);
+    border-radius: 10px 5px 12px 7px / 7px 12px 5px 10px;
+    padding: 6px 10px; font-size: 14px; color: #3d6b12; background: #F7FCF0;
+  }
+
+  button {
+    font-family: var(--font-label); font-size: 15px;
+    border: 2px solid var(--ink); border-radius: 9px 5px 11px 6px / 6px 11px 5px 9px;
+    background: var(--panel); color: var(--ink);
+    padding: 6px 12px; cursor: pointer;
+    transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+  }
+  button:hover { background: var(--honey); box-shadow: 2px 2px 0 var(--ink); transform: translate(-1px,-1px); }
+  button:active { transform: translate(0,0); box-shadow: none; }
+  button.primary { background: var(--honey); font-weight: bold; }
+  button.small { font-size: 13px; padding: 3px 9px; }
+
+  /* ============ Stage ============ */
+  .stage { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .tabs {
+    display: flex; gap: 6px; padding: 8px var(--space-lg) 0;
+    border-bottom: 2px solid var(--ink); background: var(--paper);
+  }
+  .tabs button {
+    border-bottom: none; border-radius: 10px 10px 0 0;
+    padding: 6px 16px; font-size: 16px;
+  }
+  .tabs button[aria-selected="true"] { background: var(--honey); font-weight: bold; box-shadow: none; transform: none; }
+  .view { flex: 1; min-height: 0; position: relative; display: none; }
+  .view.active { display: block; }
+  #view3dSvg, #sheetSvg { width: 100%; height: 100%; display: block; touch-action: none; }
+  #view3d .hint {
+    position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+    font-size: 14px; color: var(--gray-600); pointer-events: none;
+  }
+  #view3d .explodeBox {
+    position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 10px; align-items: center;
+    background: var(--panel); border: 2px solid var(--ink);
+    border-radius: 12px 7px 12px 7px / 7px 12px 7px 12px;
+    padding: 6px 16px;
+  }
+  #view3d .explodeBox input[type=range] { width: 180px; accent-color: var(--brick); }
+  #viewSheets { flex-direction: column; }
+  #viewSheets.active { display: flex; }
+  #sheetBar {
+    flex: 0 0 auto; display: flex; gap: 8px; align-items: center;
+    padding: 8px var(--space-lg); flex-wrap: wrap;
+  }
+  #sheetBar .note { font-size: 13px; color: var(--gray-600); }
+  #sheetScroll { flex: 1; overflow: auto; padding: 0 var(--space-lg) var(--space-lg); }
+
+  /* ============ Assembly notes ============ */
+  #viewNotes { overflow-y: auto; padding: var(--space-lg) var(--space-xl); }
+  #viewNotes .inner { max-width: 720px; }
+  #viewNotes h2 { font-family: var(--font-title); font-size: 30px; margin: var(--space-lg) 0 var(--space-sm); }
+  #viewNotes h2:first-child { margin-top: 0; }
+  #viewNotes ol { padding-left: 24px; }
+  #viewNotes li { margin-bottom: 8px; font-size: 16px; line-height: 1.45; }
+  #viewNotes p { margin-bottom: 10px; font-size: 16px; line-height: 1.45; }
+  #viewNotes .tip {
+    border: 2px solid var(--sky); background: #F0FAFE;
+    border-radius: 12px 6px 14px 8px / 8px 14px 6px 12px;
+    padding: 10px 14px; margin: 12px 0; font-size: 15px;
+  }
+  #viewNotes code { font-family: var(--font-num); font-size: 13px; background: #eee; padding: 1px 5px; border-radius: 4px; }
+
+  footer {
+    flex: 0 0 auto; padding: 4px var(--space-lg);
+    border-top: 1.5px solid var(--gray-400);
+    font-family: var(--font-num); font-size: 11px; color: var(--gray-600);
+    display: flex; gap: 12px; background: var(--panel);
+  }
+  footer .spacer { flex: 1; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Mailbox Lab</h1>
+  <span class="sub">Jewish Life Board · Glowforge Spark</span>
+  <span class="spacer"></span>
+  <span class="machine">8×12 in cherry ply · 11 in cut window</span>
+</header>
+
+<div class="main">
+  <aside>
+    <div id="warnings"></div>
+
+    <div class="group">
+      <h2>House</h2>
+      <div class="row"><label for="pW">Width</label><input type="range" id="pW_r" min="6" max="8.5" step="0.05"><input type="number" id="pW" step="0.05"><span class="unit">in</span></div>
+      <div class="row"><label for="pD">Depth</label><input type="range" id="pD_r" min="1.2" max="4.5" step="0.05"><input type="number" id="pD" step="0.05"><span class="unit">in</span></div>
+      <div class="row"><label for="pHW">Wall height</label><input type="range" id="pHW_r" min="4" max="6.5" step="0.05"><input type="number" id="pHW" step="0.05"><span class="unit">in</span></div>
+      <div class="row"><label for="pHP">Roof peak rise</label><input type="range" id="pHP_r" min="1.2" max="3.2" step="0.05"><input type="number" id="pHP" step="0.05"><span class="unit">in</span></div>
+      <div class="row"><label for="pOh">Roof overhang</label><input type="range" id="pOh_r" min="0.2" max="0.8" step="0.05"><input type="number" id="pOh" step="0.05"><span class="unit">in</span></div>
+      <div class="row"><label for="pWin">Windows in the sides</label><input type="checkbox" id="pWin"></div>
+      <div class="row"><label for="pWinZ">Window height (sill)</label><input type="range" id="pWinZ_r" min="0.2" max="3" step="0.05"><input type="number" id="pWinZ" step="0.05"><span class="unit">in</span></div>
+      <div class="row"><label for="pWinX">Window from front</label><input type="range" id="pWinX_r" min="0.3" max="3.5" step="0.05"><input type="number" id="pWinX" step="0.05"><span class="unit">in</span></div>
+    </div>
+
+    <div class="group">
+      <h2>Mail Slot</h2>
+      <div class="row"><label for="pSw">Slot width</label><input type="range" id="pSw_r" min="3.1" max="6.5" step="0.05"><input type="number" id="pSw" step="0.05"><span class="unit">in</span></div>
+      <div class="row"><label for="pSh">Slot height</label><input type="range" id="pSh_r" min="0.35" max="0.8" step="0.05"><input type="number" id="pSh" step="0.05"><span class="unit">in</span></div>
+      <div class="row"><label for="pRSL">Roof slot — left slope</label><input type="checkbox" id="pRSL"></div>
+      <div class="row"><label for="pRSR">Roof slot — right slope</label><input type="checkbox" id="pRSR"></div>
+      <div class="row"><span style="font-size:13px;color:var(--gray-600);">Both off = slot on the front face</span></div>
+    </div>
+
+    <div class="group">
+      <h2>Engraving</h2>
+      <div class="row"><label for="pT1">Line 1</label><input type="text" id="pT1"></div>
+      <div class="row"><label for="pT2">Line 2</label><input type="text" id="pT2"></div>
+      <div class="row"><label for="pTs">Line 1 height</label><input type="range" id="pTs_r" min="0.3" max="1.1" step="0.02"><input type="number" id="pTs" step="0.02"><span class="unit">in</span></div>
+      <div class="row"><label for="pTs2">Line 2 height</label><input type="range" id="pTs2_r" min="0.3" max="1.1" step="0.02"><input type="number" id="pTs2" step="0.02"><span class="unit">in</span></div>
+      <div class="row"><label for="pTy">Raise text</label><input type="range" id="pTy_r" min="0" max="2.2" step="0.05"><input type="number" id="pTy" step="0.05"><span class="unit">in</span></div>
+      <div class="row"><label for="pEng">Engrave on</label><input type="checkbox" id="pEng"></div>
+    </div>
+
+    <div class="group">
+      <h2>Porch &amp; Pencils</h2>
+      <div class="row"><label for="pPd">Porch depth</label><input type="range" id="pPd_r" min="0.7" max="3.6" step="0.05"><input type="number" id="pPd" step="0.05"><span class="unit">in</span></div>
+      <div class="row"><label for="pLh">Rail (lip) height</label><input type="range" id="pLh_r" min="1.1" max="2.2" step="0.05"><input type="number" id="pLh" step="0.05"><span class="unit">in</span></div>
+      <div class="row"><label for="pWellOn">Pencil well divider</label><input type="checkbox" id="pWellOn"></div>
+      <div class="row"><label for="pCw">Pencil well width</label><input type="range" id="pCw_r" min="1.2" max="2.2" step="0.05"><input type="number" id="pCw" step="0.05"><span class="unit">in</span></div>
+    </div>
+
+    <div class="group">
+      <h2>Flourishes</h2>
+      <div class="row"><label for="pBal">Porch railing posts</label><input type="checkbox" id="pBal"></div>
+      <div class="row"><label for="pShg">Shingled roof (scored)</label><input type="checkbox" id="pShg"></div>
+      <div class="row"><label for="pMez">Mezuzah</label><input type="checkbox" id="pMez"></div>
+      <div class="row"><label for="pStar">Star window in the gable</label><input type="checkbox" id="pStar"></div>
+      <div class="row"><label for="pProps">Preview cards &amp; pencil</label><input type="checkbox" id="pProps"></div>
+      <div class="row"><label for="pCAlign">Card stack sits</label><select id="pCAlign"><option value="L">left</option><option value="C">center</option><option value="R">right</option></select></div>
+      <div class="row"><label for="pCPort">Cards upright (portrait)</label><input type="checkbox" id="pCPort"></div>
+    </div>
+
+    <div class="group">
+      <h2>Machine &amp; Joints</h2>
+      <div class="row"><label for="pTmm">Material thickness</label><input type="range" id="pTmm_r" min="2.6" max="4" step="0.05"><input type="number" id="pTmm" step="0.05"><span class="unit">mm</span></div>
+      <div class="row"><label for="pFin">Finger size (approx)</label><input type="range" id="pFin_r" min="0.4" max="1" step="0.05"><input type="number" id="pFin" step="0.05"><span class="unit">in</span></div>
+      <div class="row"><label for="pFit">Joint snugness</label><input type="range" id="pFit_r" min="0" max="0.025" step="0.001"><input type="number" id="pFit" step="0.001"><span class="unit">in</span></div>
+      <div class="row"><label for="pScrew">Screw holes in back</label><input type="checkbox" id="pScrew"></div>
+    </div>
+
+    <div class="row" style="justify-content: space-between;">
+      <button id="btnReset" class="small">Reset defaults</button>
+    </div>
+  </aside>
+
+  <div class="stage">
+    <div class="tabs" role="tablist">
+      <button role="tab" aria-selected="true" data-view="view3d">Assembled</button>
+      <button role="tab" aria-selected="false" data-view="viewSheets">Cut Sheets</button>
+      <button role="tab" aria-selected="false" data-view="viewNotes">Assembly</button>
+    </div>
+
+    <div class="view active" id="view3d">
+      <svg id="view3dSvg" aria-label="3D preview of the assembled mailbox"></svg>
+      <div class="hint">drag to spin · scroll to zoom</div>
+      <div class="explodeBox">
+        <label for="explode" style="font-size:15px;">Explode</label>
+        <input type="range" id="explode" min="0" max="1" step="0.01" value="0">
+      </div>
+    </div>
+
+    <div class="view" id="viewSheets">
+      <div id="sheetBar">
+        <button class="primary" id="btnAll">Download all (zip)</button>
+        <span id="sheetBtns"></span>
+        <span class="note">SVGs are true-size inches · black lines = cut · gray fills = engrave</span>
+      </div>
+      <div id="sheetScroll"><svg id="sheetSvg"></svg></div>
+    </div>
+
+    <div class="view" id="viewNotes"><div class="inner" id="notesInner"></div></div>
+  </div>
+</div>
+
+<footer>
+  <span id="verTag">Mailbox Lab</span>
+  <span class="spacer"></span>
+  <span id="statTotals"></span>
+</footer>
+
+<script>/*__OPENTYPE__*/</script>
+<script>
+"use strict";
+/* =====================================================================
+   Mailbox Lab — parametric laser-cut mailbox for the Jewish Life Board
+   All geometry in INCHES. Local part coords: x right, y DOWN (SVG-style).
+   Joinery scheme:
+     - front/back gables <-> side walls: classic box joints (tab-first on
+       gables, notch-first on sides, odd finger count so corners match)
+     - floor: captive, tabs through wall mortises
+     - roof: lift-off cap (2 panels glued over 2 locating ribs)
+     - porch tray, rail, pencil well, brackets: tab-and-mortise + glue
+   Mortises are undersized by "fit" to counter the kerf the laser removes.
+   ===================================================================== */
+
+const VERSION = "0.10.2";
+const PARAM_SCHEMA = 7;   // bump when defaults should override older saves
+/* Dan's artwork, normalized at build time:
+   STAR_D — star-circle window on a unit circle (bridges pre-thickened);
+   DOOR_SC / DOOR_EN — doorway frames (score) and mezuzah+shin (engrave),
+   unit-height with the bottom at y=0, centered on x=0. */
+const STAR_D = "__STAR_D__";
+const DOOR_SC = "__DOOR_SC__";
+const DOOR_EN = "__DOOR_EN__";
+/* scale/position artwork: every number in these paths is an alternating x,y coordinate */
+function xformPath(src, cx, cy, s) {
+  let i = 0;
+  return src.replace(/-?\d+(\.\d+)?/g, m => {
+    const v = parseFloat(m);
+    return f(i++ % 2 === 0 ? cx + v*s : cy + v*s);
+  });
+}
+const starPath = (cx, cy, r) => xformPath(STAR_D, cx, cy, r);
+/* Proofgrade sheets for the Spark are 8×12; the machine's cut window is 8.5×11,
+   so the usable area is the intersection: 11" of the sheet's length. */
+const SHEET_W = 12.0, SHEET_H = 8.0, SHEET_MARGIN = 0.15;
+const USE_W = Math.min(11.0, SHEET_W - 2*SHEET_MARGIN);
+const USE_H = SHEET_H - 2*SHEET_MARGIN;
+
+/* Defaults = Dan's built v2 (read back from his exported cut sheets, 2026-08-08) */
+const DEFAULTS = {
+  W: 7.1, D: 1.5, HW: 5.5, HP: 2.25, Oh: 0.2,
+  Sw: 3.1, Sh: 0.5, RSL: true, RSR: true,
+  T1: "Rabbi Dan", T2: "Jewish Life", Ts: 0.8, Ts2: 0.55, Ty: 0.7, Eng: true,
+  Pd: 1.0, Lh: 1.7, Cw: 1.5, WellOn: true,
+  Win: true, WinZ: 3.0, WinX: 0.9,
+  Bal: true, Shg: true, Mez: true, Star: true, Props: true, CAlign: "L", CPort: false,
+  Tmm: 3.2, Fin: 0.6, Fit: 0.012, Screw: false
+};
+let P = loadParams();
+let amaticFont = null;
+let engraveOverflow = false;   // set when a text line pokes past the gable slope
+
+function loadParams() {
+  try {
+    const s = JSON.parse(localStorage.getItem("mailboxLab_v1"));
+    if (s && typeof s === "object") {
+      const p = Object.assign({}, DEFAULTS, s);
+      // saves from before the v0.4 shallow redesign carry deep-house dimensions
+      if (!("RSL" in s)) {
+        p.RSL = p.RSR = true;
+        p.D = DEFAULTS.D; p.Pd = DEFAULTS.Pd;
+        p.Sw = DEFAULTS.Sw; p.Lh = DEFAULTS.Lh;
+      }
+      // v5: pencil well divider became on-by-default; v6: star window on;
+      // v7: defaults snapped to Dan's built v2
+      if ((s.v || 0) < 5) { p.WellOn = DEFAULTS.WellOn; }
+      if ((s.v || 0) < 6) { p.Star = DEFAULTS.Star; }
+      if ((s.v || 0) < 7) {
+        for (const k of ["W","HP","HW","Oh","Sw","Ty","Cw","WinZ","Screw"]) p[k] = DEFAULTS[k];
+      }
+      return p;
+    }
+  } catch (e) {}
+  return Object.assign({}, DEFAULTS);
+}
+function saveParams() { localStorage.setItem("mailboxLab_v1", JSON.stringify(Object.assign({ v: PARAM_SCHEMA }, P))); }
+
+/* ---------------- geometry helpers ---------------- */
+function dedupe(pts) {
+  const out = [];
+  for (const p of pts) {
+    const q = out[out.length-1];
+    if (!q || Math.abs(q[0]-p[0]) > 1e-6 || Math.abs(q[1]-p[1]) > 1e-6) out.push(p);
+  }
+  return out;
+}
+/* Fingered edge from (x0,y0) to (x1,y1); (inx,iny) unit vector pointing INTO the panel.
+   tabFirst: first cell sits on the outer line. Returns points incl. start & end. */
+function fingerEdge(x0,y0,x1,y1,inx,iny,count,T,tabFirst) {
+  const pts = [];
+  const dx = (x1-x0)/count, dy = (y1-y0)/count;
+  for (let i = 0; i < count; i++) {
+    const outer = tabFirst ? (i % 2 === 0) : (i % 2 === 1);
+    const off = outer ? 0 : T;
+    pts.push([x0 + dx*i     + inx*off, y0 + dy*i     + iny*off]);
+    pts.push([x0 + dx*(i+1) + inx*off, y0 + dy*(i+1) + iny*off]);
+  }
+  return pts;
+}
+function oddCount(len, nominal) {
+  let c = Math.max(3, Math.round(len / nominal));
+  if (c % 2 === 0) c += 1;
+  return c;
+}
+function rect(x,y,w,h) { return [[x,y],[x+w,y],[x+w,y+h],[x,y+h]]; }
+function rrPath(x,y,w,h,r) {
+  r = Math.min(r, w/2, h/2);
+  return `M ${f(x+r)} ${f(y)} L ${f(x+w-r)} ${f(y)} A ${f(r)} ${f(r)} 0 0 1 ${f(x+w)} ${f(y+r)} L ${f(x+w)} ${f(y+h-r)} A ${f(r)} ${f(r)} 0 0 1 ${f(x+w-r)} ${f(y+h)} L ${f(x+r)} ${f(y+h)} A ${f(r)} ${f(r)} 0 0 1 ${f(x)} ${f(y+h-r)} L ${f(x)} ${f(y+r)} A ${f(r)} ${f(r)} 0 0 1 ${f(x+r)} ${f(y)} Z`;
+}
+function circPath(cx,cy,r) {
+  return `M ${f(cx-r)} ${f(cy)} A ${f(r)} ${f(r)} 0 1 0 ${f(cx+r)} ${f(cy)} A ${f(r)} ${f(r)} 0 1 0 ${f(cx-r)} ${f(cy)} Z`;
+}
+function polyPath(pts) {
+  return "M " + pts.map(p => `${f(p[0])} ${f(p[1])}`).join(" L ") + " Z";
+}
+function f(n) { return (Math.round(n*1000)/1000).toString(); }
+
+/* ---------------- part construction ---------------- */
+function buildParts() {
+  const T = P.Tmm / 25.4;
+  const fit = P.Fit;
+  const c = 0.02;                  // assembly clearance
+  const rIn = 0.15;                // rail sits this far back from the porch edge (a porch lip,
+                                   // and it keeps the side-panel rail mortises off the wood's edge)
+  const W = P.W, D = P.D, HW = P.HW, HP = P.HP;
+  const HG = HW + HP;              // gable height, peak to bottom edge
+  const Pd = P.Pd, Lh = P.Lh, Cw = P.Cw;
+  const fw = W - 2*T - c;          // floor width (sits between the side panels)
+  const wellOn = P.WellOn && (Pd - T) > 0.55;   // divider only makes sense with some depth
+  const bayW = wellOn ? fw - Cw - T : fw;       // card bay width on the porch
+  const roofMode = P.RSL || P.RSR;
+  const starR = 0.5, starCy = 1.05;    // gable star window: radius + center-below-peak
+  const nV = oddCount(HW, P.Fin);            // back <-> sides fingers
+  const nS = oddCount(HW - T - Lh, P.Fin);   // front <-> sides fingers (above the porch walls)
+  const ohG = P.Oh, ohE = P.Oh;
+  const hyp = Math.hypot(W/2, HP);           // slope length over the house
+  const slopeL = hyp + ohE;
+  const roofW = D + ohG;           // overhang at the front only — back sits flush on the wall
+  // ribs are slimmer than the house: they register + carry the cap just as well,
+  // and they nest under the roof panels on the cut sheet
+  const ribW = Math.min(W - 2*T - 0.06, 3.4);
+  const ribH = ribW * HP / W;
+  const tp = T + 0.025;            // tab protrusion (a hair proud, sand flush)
+  // roof slot runs DOWN the slope, so its length is capped by the slope over the house
+  const SwEff = roofMode ? Math.min(P.Sw, hyp - 0.85) : P.Sw;
+  const parts = [];
+  const mort = holes => (cx,cy,len,vert) => holes.push(polyPath(
+    vert ? rect(cx - (T-fit)/2, cy - (len-fit)/2, T - fit, len - fit)
+         : rect(cx - (len-fit)/2, cy - (T-fit)/2, len - fit, T - fit)));
+
+  /* ---- BACK: full gable; fingers to the sides over the whole wall height ---- */
+  {
+    let pts = [[W/2, 0], [W, HP]];
+    pts = pts.concat(fingerEdge(W, HP, W, HP+HW, -1, 0, nV, T, true));
+    pts.push([W, HP+HW], [0, HP+HW]);
+    pts = pts.concat(fingerEdge(0, HP+HW, 0, HP, 1, 0, nV, T, true));
+    pts.push([0, HP]);
+    const holes = [];
+    const m = mort(holes);
+    m(W*0.28, HP + HW - T/2, 1.3, false);   // floor back-tab mortises (floor bottom at z = 0)
+    m(W*0.72, HP + HW - T/2, 1.3, false);
+    if (P.Screw) {
+      holes.push(circPath(W/2, 0.85, 0.082));
+      holes.push(circPath(1.1, HP + HW - 0.7, 0.082));
+      holes.push(circPath(W - 1.1, HP + HW - 0.7, 0.082));
+    }
+    parts.push({
+      id: "back", name: "Back",
+      outline: dedupe(pts), holes,
+      place: { O: [W,D,HG], U: [-1,0,0], V: [0,0,-1] },
+      explode: [0,1.7,0]
+    });
+  }
+
+  /* ---- FRONT: raised — bottom rests on the floor; inset beside the porch walls.
+     No bottom tabs: the box fingers on both sides locate it, glue holds it. ---- */
+  {
+    const yB = HP + (HW - T - Lh);   // local y where the porch walls top out
+    const Hf = HP + HW - T;          // bottom edge (z = T, sitting on the floor)
+    let pts = [[W/2, 0], [W, HP]];
+    pts = pts.concat(fingerEdge(W, HP, W, yB, -1, 0, nS, T, true));
+    pts.push([W, yB], [W - T, yB], [W - T, Hf], [T, Hf], [T, yB], [0, yB]);
+    pts = pts.concat(fingerEdge(0, yB, 0, HP, 1, 0, nS, T, true));
+    pts.push([0, HP]);
+    const holes = [];
+    if (!roofMode) holes.push(rrPath(W/2 - P.Sw/2, HP + 0.32, P.Sw, P.Sh, 0.16));
+    if (wellOn) {
+      // the pencil-well divider's back tab locks in here — bracing for kid-yanks
+      const dvx = T + c/2 + bayW + T/2;
+      holes.push(polyPath(rect(dvx - (T-fit)/2, HG - (T + Lh*0.5) - (0.55-fit)/2, T - fit, 0.55 - fit)));
+    }
+    if (P.Star) holes.push(starPath(W/2, starCy, starR));   // Dan's star-circle window
+    let engraveExtra = null, frontScoreD = null;
+    if (P.Mez) {
+      /* Dan's doorway: double dome frames (score) with the mezuzah on the right
+         frame — engraved pill with the shin left unburned (evenodd knockout).
+         3" tall to match the cards; sits behind the pencil well. */
+      const doorH = 3.0;
+      let dCx = W - 0.85;
+      if (wellOn) {
+        const wc = T + c/2 + bayW + T, we = T + c/2 + fw;
+        dCx = (wc + we)/2 - 0.02;
+      }
+      frontScoreD = xformPath(DOOR_SC, dCx, HG - T, doorH);
+      engraveExtra = xformPath(DOOR_EN, dCx, HG - T, doorH);
+    }
+    parts.push({
+      id: "front", name: "Front",
+      outline: dedupe(pts), holes, engraveExtra, scoreD: frontScoreD,
+      engraveZone: {
+        cx: W/2,
+        top: roofMode ? Math.max(P.Star ? starCy + starR + 0.12 : 0.5, HP + 0.35 - P.Ty) : HP + 0.32 + P.Sh + 0.3,
+        bottom: yB - 0.25
+      },
+      place: { O: [0,0,HG], U: [1,0,0], V: [0,0,-1] },
+      explode: [0,-1.8,0]
+    });
+  }
+
+  /* ---- SIDES: house wall + porch wall + porch support, one piece.
+     Local x: 0 at the porch front, Pd at the front panel plane, Pd+D at the back.
+     y down from the eave. ---- */
+  {
+    const yP = HW - T - Lh;          // porch wall top
+    const Ltot = Pd + D;
+    for (const side of ["L","R"]) {
+      let pts = [];
+      pts = pts.concat(fingerEdge(Pd, yP, Pd, 0, 1, 0, nS, T, false));  // step edge, up to the eave
+      pts.push([Pd, 0], [Ltot, 0]);                                      // eave
+      pts = pts.concat(fingerEdge(Ltot, 0, Ltot, HW, -1, 0, nV, T, false)); // back edge
+      pts.push([Ltot, HW], [0, HW]);                                     // bottom, back to porch front
+      pts.push([0, yP], [Pd, yP]);                                       // porch front + porch top
+      const holes = [];
+      const m = mort(holes);
+      const slp = Math.min(1.0, Pd - 0.3);
+      if (D >= 2.2) m(Pd + 0.75*D, HW - T/2, 1.0, false); // floor tab, house section (deep houses only)
+      m(Pd*0.45, HW - T/2, slp, false);                   // floor tab, porch section
+      m(rIn + T/2, HW - T - Lh*0.5, 0.55, true);          // rail side tab — stops the rail sliding
+      if (P.Bal) {
+        // railing posts continue onto the porch section of the side panel, centered
+        const bT2 = HW - T - Lh + 0.32, bB2 = HW - T - 0.34;
+        const xa = rIn + T, xb = Pd;
+        const len = xb - xa;
+        let kk = Math.floor((len + 0.26) / 0.46);
+        while (kk > 0 && (len - (kk*0.2 + (kk-1)*0.26))/2 < 0.12) kk--;
+        let bx = xa + (len - (kk*0.2 + (kk-1)*0.26))/2;
+        for (let i2 = 0; i2 < kk; i2++, bx += 0.46) holes.push(polyPath(rect(bx, bT2, 0.2, bB2 - bT2)));
+      }
+      const ww = Math.min(1.1, D - T - 0.5);
+      if (P.Win && ww >= 0.3) {
+        /* Arched window as a grid of small panes with 0.14" muntin bars between
+           them — little fingers can't fish notes out. Position is adjustable. */
+        const r = ww/2, mw = 0.14;
+        const sillZ = T + Math.max(0.2, P.WinZ);          // sill height above the box bottom
+        const wh = Math.min(1.6, HW - sillZ - 0.45);      // window height, kept under the eave
+        const wx = Pd + Math.max(ww/2 + 0.22, Math.min(D - T - ww/2 - 0.22, P.WinX));
+        const sillY = HW - sillZ;                          // local y of the sill
+        const topY = sillY - wh, lunBot = topY + r;        // arch (lunette) region
+        if (ww >= 0.8) {
+          // lunette split into two quarter-round panes by a center muntin
+          const yj = topY + (r - Math.sqrt(Math.max(0, r*r - (mw/2)*(mw/2))));
+          holes.push(`M ${f(wx - r)} ${f(lunBot)} A ${f(r)} ${f(r)} 0 0 1 ${f(wx - mw/2)} ${f(yj)} L ${f(wx - mw/2)} ${f(lunBot)} Z`);
+          holes.push(`M ${f(wx + mw/2)} ${f(lunBot)} L ${f(wx + mw/2)} ${f(yj)} A ${f(r)} ${f(r)} 0 0 1 ${f(wx + r)} ${f(lunBot)} Z`);
+        } else {
+          holes.push(`M ${f(wx - r)} ${f(lunBot)} A ${f(r)} ${f(r)} 0 0 1 ${f(wx + r)} ${f(lunBot)} Z`);
+        }
+        // rectangular panes below the lunette
+        const gh = sillY - (lunBot + mw);
+        if (gh > 0.28) {
+          const rows = Math.max(1, Math.floor((gh + mw) / (0.42 + mw)));
+          const rowH = (gh - (rows - 1)*mw) / rows;
+          const cols = ww >= 0.8 ? 2 : 1;
+          const colW = (ww - (cols - 1)*mw) / cols;
+          for (let ri = 0; ri < rows; ri++) {
+            for (let ci = 0; ci < cols; ci++) {
+              holes.push(polyPath(rect(wx - r + ci*(colW + mw), lunBot + mw + ri*(rowH + mw), colW, rowH)));
+            }
+          }
+        }
+      }
+      parts.push({
+        id: "side"+side, name: side === "L" ? "Side (left)" : "Side (right)",
+        outline: dedupe(pts), holes,
+        place: side === "L" ? { O: [0,-Pd,HW], U: [0,1,0], V: [0,0,-1] }
+                            : { O: [W,-Pd,HW], U: [0,1,0], V: [0,0,-1] },
+        explode: side === "L" ? [-1.9,0,0] : [1.9,0,0]
+      });
+    }
+  }
+
+  /* ---- FLOOR: one plain rectangle, house through porch.
+     Local y: 0 at the back wall's inner face, increasing forward to the porch front. ---- */
+  {
+    const Lf = D - T + Pd - c/2;
+    const bx1 = W*0.28 - T - c/2, bx2 = W*0.72 - T - c/2, tl = 1.3;
+    const hasHouseTab = D >= 2.2;
+    const sy1 = 0.25*D - T;                      // side tab, house section (deep houses only)
+    const sy2 = (D - T - c/2) + 0.55*Pd;         // side tab, porch section
+    const sl = 1.0, slp = Math.min(1.0, Pd - 0.3);
+    let pts = [];
+    pts.push([0,0],
+      [bx1-tl/2,0],[bx1-tl/2,-tp],[bx1+tl/2,-tp],[bx1+tl/2,0],
+      [bx2-tl/2,0],[bx2-tl/2,-tp],[bx2+tl/2,-tp],[bx2+tl/2,0],
+      [fw,0]);
+    if (hasHouseTab) pts.push([fw, sy1-sl/2],[fw+tp, sy1-sl/2],[fw+tp, sy1+sl/2],[fw, sy1+sl/2]);
+    pts.push([fw, sy2-slp/2],[fw+tp, sy2-slp/2],[fw+tp, sy2+slp/2],[fw, sy2+slp/2],
+             [fw, Lf]);
+    pts.push([0, Lf]);
+    pts.push([0, sy2+slp/2],[-tp, sy2+slp/2],[-tp, sy2-slp/2],[0, sy2-slp/2]);
+    if (hasHouseTab) pts.push([0, sy1+sl/2],[-tp, sy1+sl/2],[-tp, sy1-sl/2],[0, sy1-sl/2]);
+    const holes = [];
+    const m = mort(holes);
+    const yb = D - T - c/2;
+    m(bayW*0.25, Lf - rIn - T/2, 0.9, false);      // rail (inset from the porch edge)
+    m(bayW*0.75, Lf - rIn - T/2, 0.9, false);
+    if (wellOn) {
+      const dvx = fw - Cw - T/2, dl = Pd - T;
+      const dtl = Math.min(0.8, dl - 0.25);
+      if (dl >= 1.6) { m(dvx, yb + dl*0.3, dtl, true); m(dvx, yb + dl*0.78, dtl, true); }
+      else m(dvx, yb + dl/2, dtl, true);           // shallow porch: one centered tab
+    }
+    parts.push({
+      id: "floor", name: "Floor + porch",
+      outline: dedupe(pts), holes,
+      place: { O: [T + c/2, D - T - c/2, T], U: [1,0,0], V: [0,-1,0] },
+      explode: [0,-0.8,-1.7]
+    });
+  }
+
+  /* ---- ROOF CAP: 2 panels + 2 ribs; mail slot in panel B's slope ---- */
+  {
+    const th = Math.atan2(HP, W/2);
+    const dR = [Math.cos(th), 0, -Math.sin(th)];
+    const dL = [-Math.cos(th), 0, -Math.sin(th)];
+    const xc = ohG + D/2;
+    /* Rib joinery: each rib has one tab per slope edge that passes through a
+       mortise in its roof panel — the cap locks together mechanically.
+       Panel A overlaps panel B's edge at the ridge, so A's mortises (and slot)
+       sit T further down its slope. s0 = where the rib apex lands, measured
+       from a panel's ridge edge along the slope. */
+    /* Per-rib geometry: the front rib grows when the star window is on, so the
+       circular opening keeps a ≥0.25" frame below it (pitch-locked, so wider ⇒
+       taller). Each rib gets its own tab position and matching panel mortises. */
+    const mkRib = rw => {
+      const rh = rw * HP / W;
+      const lr = Math.hypot(rw/2, rh);
+      return { rw, rh, lr, sr: 0.55*lr, rtl: Math.min(0.9, lr*0.45) };
+    };
+    const R1 = mkRib(P.Star ? Math.max(ribW, (starCy - 0.15 + starR + 0.07 + 0.25) * W / HP) : ribW);
+    const R2 = mkRib(ribW);
+    /* Ridge trig (v0.6.2 fix — panels used to jam ~1.5 mm proud per side):
+       near the apex the two tilted panels contend for the same wedge of space.
+       Panel B must STOP T·cot(2·pitch) down-slope of the undersides' meeting
+       line so panel A can pass over; A's edge lands where its underside grazes
+       B's outer corner — T·cot(pitch) further along than B's. So A is simply
+       B shifted by extA in length, slot, and mortises. */
+    const cot2 = 1 / Math.tan(2 * th);        // negative for >45° pitches; formula still holds
+    const extA = T / Math.tan(th);            // how far panel A leads panel B
+    const xr1 = ohG + 1.5*T + 0.045;          // rib plane centers — front rib rides 5 mil
+    const xr2 = ohG + D - 1.5*T - 0.05;       // forward (Dan-measured) to friction-fit the cap
+    const mort1 = (xr, Rr, off) => polyPath(rect(
+      xr - (T-fit)/2, (Rr.sr - T*cot2) + off - (Rr.rtl-fit)/2, T - fit, Rr.rtl - fit));
+    /* Panel A is the OPPOSITE hand from panel B (they fold onto opposite
+       slopes). Its holes are mirrored across the panel width and its 3D basis
+       is flipped, so as-cut (scores up) it folds onto its slope with everything
+       aligned — v2's panel A came out scores-in because both panels shared one
+       handedness. The shingle pattern and eave tabs are mirror-symmetric, so
+       only the holes move. */
+    const mA = x => roofW - x;
+    const holesR = [mort1(mA(xr1), R1, extA), mort1(mA(xr2), R2, extA)];
+    const holesL = [mort1(xr1, R1, 0), mort1(xr2, R2, 0)];
+    if (P.RSR) holesR.push(rrPath(mA(xc) - P.Sh/2, 0.5 + extA, P.Sh, SwEff, 0.16));
+    if (P.RSL) holesL.push(rrPath(xc - P.Sh/2, 0.5, P.Sh, SwEff, 0.16));
+    /* Shingles: the eave edge becomes a row of round-cornered shingle tabs
+       (curves face out — no sharp points), and the field is scored as
+       overlapping rounded shingles, full bleed to the edges. Scores may cross
+       the slot/mortises — those regions cut away, so the scores simply end at
+       the openings. Courses count up from the eave so the stagger always
+       finishes half-lapped over the eave tabs. */
+    const shingle = len => {
+      const n = Math.max(3, Math.round(roofW / 0.45));
+      const sw2 = roofW / n;
+      const ext = 0.13, r = 0.07, g2 = 0.035;
+      let d = `M 0 0 L ${f(roofW)} 0 L ${f(roofW)} ${f(len + ext - r)} A ${f(r)} ${f(r)} 0 0 1 ${f(roofW - r)} ${f(len + ext)} `;
+      for (let i = n - 1; i >= 0; i--) {
+        const xL = (i === 0 ? 0 : i*sw2 + g2);
+        d += `L ${f(xL + r)} ${f(len + ext)} A ${f(r)} ${f(r)} 0 0 1 ${f(xL)} ${f(len + ext - r)} `;
+        if (i > 0) {
+          const xS = i*sw2 - g2;
+          d += `L ${f(xL)} ${f(len)} L ${f(xS)} ${f(len)} L ${f(xS)} ${f(len + ext - r)} A ${f(r)} ${f(r)} 0 0 1 ${f(xS - r)} ${f(len + ext)} `;
+        }
+      }
+      d += "Z";
+      let sd = "";
+      // eave shingles' side scores: continue the cut slits up to the first course line
+      for (let i = 1; i < n; i++) sd += `M ${f(i*sw2)} ${f(len - 0.5)} L ${f(i*sw2)} ${f(len)} `;
+      for (let k = 1; len - 0.5*k >= 0.18; k++) {
+        const yB = len - 0.5*k;
+        const yT = Math.max(0.04, yB - 0.5);
+        const off = (k % 2) ? sw2/2 : 0;
+        for (let x0 = -off; x0 < roofW - 0.02; x0 += sw2) {
+          const xR = x0 + sw2;
+          if (x0 >= 0) sd += `M ${f(x0)} ${f(yT)} L ${f(x0)} ${f(yB - r)} A ${f(r)} ${f(r)} 0 0 0 ${f(x0 + r)} ${f(yB)} `;
+          else sd += `M 0 ${f(yB)} `;
+          if (xR <= roofW + 0.001) {
+            sd += `L ${f(xR - r)} ${f(yB)} A ${f(r)} ${f(r)} 0 0 0 ${f(xR)} ${f(yB - r)} `;
+            if (xR >= roofW - 0.02) sd += `L ${f(xR)} ${f(yT)} `;   // close the row's last side
+          } else {
+            sd += `L ${f(roofW)} ${f(yB)} `;
+          }
+        }
+      }
+      return { d, sd };
+    };
+    let shA = null, shB = null;
+    if (P.Shg) {
+      shA = shingle(slopeL + extA);
+      shB = shingle(slopeL);
+    }
+    parts.push({
+      id: "roofR", name: "Roof panel A",
+      outline: shA ? [[0,0],[roofW,0],[roofW,slopeL+extA+0.13],[0,slopeL+extA+0.13]] : rect(0,0,roofW,slopeL + extA),
+      pathD: shA && shA.d, scoreD: shA && shA.sd,
+      holes: holesR,                                           // A overlaps B at the ridge
+      place: { O: [W/2, D, HW+HP+0.05], U: [0,-1,0], V: dR },  // flipped hand (see above)
+      explode: [0.9,0,1.7]
+    });
+    parts.push({
+      id: "roofL", name: "Roof panel B",
+      outline: shB ? [[0,0],[roofW,0],[roofW,slopeL+0.13],[0,slopeL+0.13]] : rect(0,0,roofW,slopeL),
+      pathD: shB && shB.d, scoreD: shB && shB.sd,
+      holes: holesL,
+      place: { O: [W/2, -ohG, HW+HP+0.05], U: [0,1,0], V: dL },
+      explode: [-0.9,0,1.7]
+    });
+    /* rib triangle with a through-tab on each slope edge */
+    const buildRib = Rr => {
+      const dx = Rr.rw/(2*Rr.lr), dy = Rr.rh/Rr.lr;   // unit vector, apex → lower corner
+      const p2 = [[0, Rr.rh], [Rr.rw, Rr.rh]];
+      const c1 = [Rr.rw/2 + dx*(Rr.sr + Rr.rtl/2), dy*(Rr.sr + Rr.rtl/2)];
+      const c2 = [Rr.rw/2 + dx*(Rr.sr - Rr.rtl/2), dy*(Rr.sr - Rr.rtl/2)];
+      p2.push(c1, [c1[0] + dy*tp, c1[1] - dx*tp], [c2[0] + dy*tp, c2[1] - dx*tp], c2);
+      p2.push([Rr.rw/2, 0]);
+      const q1 = [Rr.rw/2 - dx*(Rr.sr - Rr.rtl/2), dy*(Rr.sr - Rr.rtl/2)];
+      const q2 = [Rr.rw/2 - dx*(Rr.sr + Rr.rtl/2), dy*(Rr.sr + Rr.rtl/2)];
+      p2.push(q1, [q1[0] - dy*tp, q1[1] - dx*tp], [q2[0] - dy*tp, q2[1] - dx*tp], q2);
+      return p2;
+    };
+    parts.push({
+      id: "rib1", name: "Roof rib (front)",
+      // circular opening behind the star window so light and depth pass through
+      outline: buildRib(R1), holes: P.Star ? [circPath(R1.rw/2, starCy - 0.15, starR + 0.07)] : [],
+      place: { O: [(W-R1.rw)/2, T+0.045, HW+HP-0.15], U: [1,0,0], V: [0,0,-1] },
+      explode: [0,-0.4,1.7]
+    });
+    parts.push({
+      id: "rib2", name: "Roof rib (back)",
+      outline: buildRib(R2), holes: [],
+      place: { O: [(W-R2.rw)/2, D-T-0.05, HW+HP-0.15], U: [1,0,0], V: [0,0,-1] },
+      explode: [0,0.4,1.7]
+    });
+  }
+
+  /* helper: wall panel with tabs on its bottom edge */
+  function tabbedWall(wid, hgt, tabs, tl) {
+    let pts = [[0,0],[wid,0],[wid,hgt]];
+    for (let i = tabs.length-1; i >= 0; i--) {
+      const tc = tabs[i];
+      pts.push([tc+tl/2,hgt],[tc+tl/2,hgt+tp],[tc-tl/2,hgt+tp],[tc-tl/2,hgt]);
+    }
+    pts.push([0,hgt]);
+    return dedupe(pts);
+  }
+
+  /* ---- PORCH RAIL (locked on all sides), WELL DIVIDER ---- */
+  {
+    const dvx = bayW + T/2;                        // divider plane, rail-local
+    let pts = [[0,0]];
+    if (wellOn) {
+      // open-top notch: the divider's front flange drops in as the rail is seated
+      const nD = Lh*0.5 + 0.275, nw = (T - fit)/2;
+      pts.push([dvx - nw, 0], [dvx - nw, nD], [dvx + nw, nD], [dvx + nw, 0]);
+    }
+    if (wellOn) {
+      // arched gate top over the pencil-well section
+      const gx0 = dvx + (T - fit)/2, gh = 0.35, Ng = 12;
+      for (let i2 = 1; i2 <= Ng; i2++) {
+        const t2 = i2/Ng;
+        pts.push([gx0 + (fw - gx0)*t2, -gh*Math.sin(Math.PI*t2)]);
+      }
+    }
+    pts.push([fw,0]);
+    // side tabs through the side panels — the rail can't slide front-to-back
+    const ty1 = Lh*0.5 - 0.275, ty2 = Lh*0.5 + 0.275;
+    pts.push([fw, ty1],[fw+tp, ty1],[fw+tp, ty2],[fw, ty2],[fw,Lh]);
+    const tl2 = 0.9;
+    for (const tc of [bayW*0.75, bayW*0.25]) {
+      pts.push([tc+tl2/2,Lh],[tc+tl2/2,Lh+tp],[tc-tl2/2,Lh+tp],[tc-tl2/2,Lh]);
+    }
+    pts.push([0,Lh],[0, ty2],[-tp, ty2],[-tp, ty1],[0, ty1]);
+    const holes = [];
+    if (P.Bal) {
+      // vertical slot cutouts leave railing posts — centered per section
+      // (bay: wall→divider; gate: centered under the arch)
+      const bT2 = 0.32, bB2 = Lh - 0.34;
+      const nw2 = (T - fit)/2;
+      const sections = wellOn ? [[0, dvx - nw2], [dvx + nw2, fw]] : [[0, fw]];
+      for (const [xa, xb] of sections) {
+        const len = xb - xa;
+        let kk = Math.floor((len + 0.26) / 0.46);
+        while (kk > 0 && (len - (kk*0.2 + (kk-1)*0.26))/2 < 0.12) kk--;
+        let bx = xa + (len - (kk*0.2 + (kk-1)*0.26))/2;
+        for (let i2 = 0; i2 < kk; i2++, bx += 0.46) holes.push(polyPath(rect(bx, bT2, 0.2, bB2 - bT2)));
+      }
+    }
+    parts.push({
+      id: "rail", name: "Porch rail",
+      outline: dedupe(pts), holes,
+      place: { O: [T + c/2, -(Pd - rIn - T), T + Lh], U: [1,0,0], V: [0,0,-1] },
+      explode: [0,-2.8,-0.7]
+    });
+    if (wellOn) {
+      const dl = Pd - T;
+      const dtl = Math.min(0.8, dl - 0.25);
+      const dtabs = dl >= 1.6 ? [dl*0.3, dl*0.78] : [dl/2];
+      const dwid = dl - rIn - c;                    // ends at the rail's back face
+      // front flange drops into the rail's open-top notch, poking through a hair
+      const nD = Lh*0.5 + 0.275;
+      let dpts = [[0,0],[dwid + tp, 0],[dwid + tp, nD],[dwid, nD],[dwid,Lh]];
+      for (let i = dtabs.length - 1; i >= 0; i--) {
+        const tc = dtabs[i];
+        dpts.push([tc+dtl/2,Lh],[tc+dtl/2,Lh+tp],[tc-dtl/2,Lh+tp],[tc-dtl/2,Lh]);
+      }
+      dpts.push([0,Lh]);
+      // back tab through the front panel — braces the divider against sideways knocks
+      dpts.push([0, Lh*0.5 + 0.275], [-tp, Lh*0.5 + 0.275], [-tp, Lh*0.5 - 0.275], [0, Lh*0.5 - 0.275]);
+      parts.push({
+        id: "wellDiv", name: "Pencil well divider",
+        outline: dedupe(dpts), holes: [],
+        place: { O: [T + c/2 + fw - Cw - T, 0, T + Lh], U: [0,-1,0], V: [0,0,-1] },
+        explode: [0.5,-2.2,-0.5]
+      });
+    }
+  }
+
+  parts.meta = { T, HG, bayW, fw, nV, nS, slopeL, hyp, roofW, ribW, ribH, SwEff };
+  return parts;
+}
+
+/* ---------------- engraving ---------------- */
+function engravePathFor(part) {
+  if (!amaticFont || !P.Eng || !part.engraveZone) return null;
+  const z = part.engraveZone;
+  const lines = [{t: P.T1, h: P.Ts}, {t: P.T2, h: P.Ts2}].filter(l => l.t && l.t.trim());
+  if (!lines.length) return null;
+  // Lay the lines into a zone, auto-shrinking (all lines by the same factor) to fit.
+  // Anchored to the top of the zone so "Raise text" moves it visibly; shrinks
+  // (all lines by the same factor) if the zone is too short.
+  function layout(bottom) {
+    const zoneH = bottom - z.top;
+    const gap = lines[0].h * 0.4;
+    const total = lines.reduce((a,l) => a + l.h, 0) + gap * (lines.length - 1);
+    const k = Math.min(1, (zoneH * 0.95) / total);
+    let y = z.top + lines[0].h*k;                        // first baseline, top-anchored
+    let d = "", over = false;
+    for (let i = 0; i < lines.length; i++) {
+      const size = lines[i].h * k * 1.4;                 // opentype size → approx cap height
+      const wAdv = amaticFont.getAdvanceWidth(lines[i].t, size);
+      // does this line fit the gable's taper at its height?
+      const yTop = y - lines[i].h*k;
+      const halfAvail = yTop >= P.HP ? (P.W/2 - 0.3)
+                      : Math.max(0.2, (yTop / P.HP) * (P.W/2) - 0.25);
+      if (wAdv/2 > halfAvail) over = true;
+      d += amaticFont.getPath(lines[i].t, z.cx - wAdv/2, y, size).toPathData(3) + " ";
+      if (i + 1 < lines.length) y += lines[i+1].h*k + gap*k;
+    }
+    return { d: d.trim(), over };
+  }
+  const res = layout(z.bottom);
+  engraveOverflow = res.over;
+  return res.d;
+}
+
+/* ---------------- 3D view ---------------- */
+let yaw = 0.6, pitch = 0.42, zoom = 0.82;
+const svg3d = document.getElementById("view3dSvg");
+
+function rot(p) {
+  const cy = Math.cos(yaw), sy = Math.sin(yaw);
+  const cx = Math.cos(pitch), sx = Math.sin(pitch);
+  const x1 = p[0]*cy - p[1]*sy, y1 = p[0]*sy + p[1]*cy, z1 = p[2];
+  return [x1, y1*cx - z1*sx, y1*sx + z1*cx];   // [screenX, depth, screenY-up]
+}
+function render3d() {
+  const parts = currentParts;
+  const ex = parseFloat(document.getElementById("explode").value);
+  const box = svg3d.getBoundingClientRect();
+  const cw = box.width || 800, chh = box.height || 600;
+  const M = parts.meta;
+  const midZ = (P.HW + P.HP) / 2;
+  const scale = Math.min(cw, chh) / (Math.max(P.W, M.HG) + 6) * 1.55 * zoom;
+  const cxs = cw/2, cys = chh/2;
+  const light = norm3([0.45, -0.65, 0.62]);
+
+  const items = [];
+  const rlist = [...parts];
+  if (P.Props) {
+    /* preview-only props: a leaning stack of 3×5 cards and a golf pencil,
+       at true geometry — for judging text height. Never exported. */
+    const Tm = M.T;
+    const run0 = Math.max(0.3, P.Pd - Tm - 0.3);
+    const cw2 = P.CPort ? 3 : 5, ch2 = P.CPort ? 5 : 3;   // portrait cards for taller designs
+    const cardX = P.CAlign === "L" ? Tm + 0.14
+                : P.CAlign === "R" ? (Tm + 0.01 + M.bayW) - cw2 - 0.1
+                : (P.W - cw2)/2;
+    for (let i = 0; i < 3; i++) {
+      const run = Math.max(0.22, run0 - i * 0.14);
+      const rise = Math.sqrt(Math.max(1, ch2*ch2 - run * run));
+      rlist.push({
+        prop: true, fill: i === 1 ? "#EFEBE2" : "#FAF8F2",
+        outline: rect(0, 0, cw2, ch2), holes: [],
+        place: { O: [cardX + 0.03*i, -(0.05 + 0.05*i), Tm + rise],
+                 U: [1,0,0], V: [0, -run/ch2, -rise/ch2] },
+        explode: [0, -1.2, -0.4]
+      });
+    }
+    const a = [0.16, 0.14, 0.977];
+    const tip = [P.W - Tm - P.Cw*0.55 + a[0]*3.5, -P.Pd*0.5 + a[1]*3.5, Tm + a[2]*3.5];
+    rlist.push({
+      prop: true, fill: "#EFB13D",
+      outline: [[0.125,0],[0.25,0.32],[0.25,3.5],[0,3.5],[0,0.32]], holes: [],
+      place: { O: [tip[0] - 0.12, tip[1], tip[2]], U: [1,0,0], V: [-a[0], -a[1], -a[2]] },
+      explode: [0.4, -1.0, -0.3]
+    });
+  }
+  for (const part of rlist) {
+    const O = [
+      part.place.O[0] - P.W/2 + part.explode[0]*ex,
+      part.place.O[1] - P.D/2 + part.explode[1]*ex,
+      part.place.O[2] - midZ + part.explode[2]*ex
+    ];
+    const U = part.place.U, V = part.place.V;
+    const o = rot(O), u = rot(U), v = rot(V);
+    // affine: local (x,y) → screen
+    const a = u[0]*scale, b = -u[2]*scale, c = v[0]*scale, d = -v[2]*scale;
+    const e = o[0]*scale + cxs, ff = -o[2]*scale + cys;
+    // centroid depth
+    let sx = 0, sy = 0;
+    for (const pt of part.outline) { sx += pt[0]; sy += pt[1]; }
+    sx /= part.outline.length; sy /= part.outline.length;
+    const depth = o[1] + u[1]*sx*0 + 0; // use transformed centroid:
+    const cd = rot([O[0]+U[0]*sx+V[0]*sy, O[1]+U[1]*sx+V[1]*sy, O[2]+U[2]*sx+V[2]*sy])[1];
+    // shade by normal
+    const n = norm3(cross3(U,V));
+    const nR = rot(n);
+    const lam = Math.abs(nR[0]*0 + 0) ; // light in view space:
+    const bright = 0.72 + 0.28 * Math.abs(dot3(norm3([nR[0],nR[1],nR[2]]), light));
+    const wood = shade(part.fill || "#EDC49C", bright);   /* light cherry */
+    let dstr = part.pathD || polyPath(part.outline);
+    for (const h of part.holes) dstr += " " + h;
+    let eng = "";
+    if (part.id === "front") {
+      const ep = engravePathFor(part);
+      if (ep) eng = `<path d="${ep}" fill="#6B4F27" stroke="none"></path>`;
+    }
+    if (part.engraveExtra) eng += `<path d="${part.engraveExtra}" fill="#6B4F27" stroke="none" fill-rule="evenodd"></path>`;
+    if (part.scoreD) eng += `<path d="${part.scoreD}" fill="none" stroke="#9A7448" stroke-width="0.015"></path>`;
+    items.push({
+      depth: cd,
+      html: `<g transform="matrix(${a} ${b} ${c} ${d} ${e} ${ff})">` +
+            `<path d="${dstr}" fill="${wood}" stroke="#191919" stroke-width="${1.4/scale}" fill-rule="evenodd" vector-effect="non-scaling-stroke"></path>` +
+            eng + `</g>`
+    });
+  }
+  items.sort((p,q) => q.depth - p.depth);
+  svg3d.innerHTML = `<rect width="100%" height="100%" fill="#FAF7F0"></rect>` + items.map(i => i.html).join("");
+}
+function cross3(a,b){ return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]]; }
+function dot3(a,b){ return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]; }
+function norm3(a){ const l=Math.hypot(a[0],a[1],a[2])||1; return [a[0]/l,a[1]/l,a[2]/l]; }
+function shade(hex, k) {
+  const r = Math.min(255, Math.round(parseInt(hex.slice(1,3),16)*k));
+  const g = Math.min(255, Math.round(parseInt(hex.slice(3,5),16)*k));
+  const b = Math.min(255, Math.round(parseInt(hex.slice(5,7),16)*k));
+  return `rgb(${r},${g},${b})`;
+}
+
+/* drag + zoom */
+let dragging = false, lastX = 0, lastY = 0;
+svg3d.addEventListener("pointerdown", e => { dragging = true; lastX = e.clientX; lastY = e.clientY; svg3d.setPointerCapture(e.pointerId); });
+svg3d.addEventListener("pointermove", e => {
+  if (!dragging) return;
+  yaw += (e.clientX - lastX) * 0.008;
+  pitch = Math.max(-1.2, Math.min(1.4, pitch + (e.clientY - lastY) * 0.008));
+  lastX = e.clientX; lastY = e.clientY;
+  render3d();
+});
+svg3d.addEventListener("pointerup", () => dragging = false);
+svg3d.addEventListener("wheel", e => {
+  e.preventDefault();
+  zoom = Math.max(0.4, Math.min(3, zoom * (e.deltaY < 0 ? 1.08 : 0.93)));
+  render3d();
+}, { passive: false });
+document.getElementById("explode").addEventListener("input", render3d);
+
+/* ---------------- sheet packing + export ---------------- */
+function partBBox(part) {
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  for (const p of part.outline) {
+    x0 = Math.min(x0,p[0]); y0 = Math.min(y0,p[1]);
+    x1 = Math.max(x1,p[0]); y1 = Math.max(y1,p[1]);
+  }
+  return { x0, y0, w: x1-x0, h: y1-y0 };
+}
+function packSheets(parts) {
+  const GAP = 0.18;
+  const items = parts.map(part => {
+    const bb = partBBox(part);
+    return { part, bb, rot: 0, w: bb.w, h: bb.h };
+  }).sort((a,b) => b.h - a.h || b.w - a.w);
+  const sheets = [];
+  const fits = (w,h) => w <= USE_W + 1e-9 && h <= USE_H + 1e-9;
+  function tryOn(sh, it, w, h) {
+    for (const row of sh.rows) {
+      if (h <= row.h + 1e-9 && row.x + w <= USE_W + 1e-9) {
+        it.x = row.x; it.y = row.y; row.x += w + GAP; return true;
+      }
+    }
+    const usedH = sh.rows.length ? sh.rows[sh.rows.length-1].y + sh.rows[sh.rows.length-1].h + GAP : 0;
+    if (usedH + h <= USE_H + 1e-9 && w <= USE_W + 1e-9) {
+      sh.rows.push({ x: w + GAP, y: usedH, h }); it.x = 0; it.y = usedH; return true;
+    }
+    return false;
+  }
+  for (const it of items) {
+    let placed = false;
+    for (const sh of sheets) {
+      if (fits(it.w, it.h) && tryOn(sh, it, it.w, it.h)) { sh.items.push(it); placed = true; break; }
+      if (fits(it.h, it.w) && tryOn(sh, it, it.h, it.w)) {
+        it.rot = 90; const t = it.w; it.w = it.h; it.h = t;
+        sh.items.push(it); placed = true; break;
+      }
+    }
+    if (!placed) {
+      if (!fits(it.w, it.h) && fits(it.h, it.w)) { it.rot = 90; const t = it.w; it.w = it.h; it.h = t; }
+      if (!fits(it.w, it.h)) { it.tooBig = true; (sheets.oversize = sheets.oversize || []).push(it); continue; }
+      const sh = { rows: [{ x: it.w + GAP, y: 0, h: it.h }], items: [it] };
+      it.x = 0; it.y = 0; sheets.push(sh);
+    }
+  }
+  return sheets;
+}
+function partSvgGroup(it, forExport) {
+  const bb = it.bb;
+  const deg = it.rot || 0;
+  const rad = deg * Math.PI / 180, cs = Math.cos(rad), sn = Math.sin(rad);
+  const corners = [[0,0],[bb.w,0],[0,bb.h],[bb.w,bb.h]].map(cp => [cp[0]*cs - cp[1]*sn, cp[0]*sn + cp[1]*cs]);
+  const minX = Math.min(...corners.map(cp => cp[0])), minY = Math.min(...corners.map(cp => cp[1]));
+  const tx = SHEET_MARGIN + it.x, ty = SHEET_MARGIN + it.y;
+  const tf = `translate(${f(tx - minX)} ${f(ty - minY)}) rotate(${f(deg)}) translate(${f(-bb.x0)} ${f(-bb.y0)})`;
+  let d = it.part.pathD || polyPath(it.part.outline);
+  for (const h of it.part.holes) d += " " + h;
+  let out = `<g transform="${tf}">` +
+    `<path d="${d}" fill="none" stroke="#000000" stroke-width="0.006" fill-rule="evenodd"></path>`;
+  if (it.part.id === "front") {
+    const ep = engravePathFor(it.part);
+    if (ep) out += `<path d="${ep}" fill="#7A7A7A" stroke="none"></path>`;
+  }
+  if (it.part.engraveExtra) out += `<path d="${it.part.engraveExtra}" fill="#7A7A7A" stroke="none" fill-rule="evenodd"></path>`;
+  if (it.part.scoreD) out += `<path d="${it.part.scoreD}" fill="none" stroke="#D00000" stroke-width="0.006"></path>`;
+  out += `</g>`;
+  if (!forExport) {
+    out += `<text x="${f(tx + it.w/2)}" y="${f(ty + it.h/2)}" font-size="0.22" fill="#24B4E4" text-anchor="middle" font-family="Patrick Hand, sans-serif" opacity="0.85">${it.part.name}</text>`;
+  }
+  return out;
+}
+/* bbox dims of a part rotated by deg */
+function rotBB(bb, deg) {
+  const rad = (deg || 0) * Math.PI / 180;
+  const cs = Math.abs(Math.cos(rad)), sn = Math.abs(Math.sin(rad));
+  return { w: bb.w*cs + bb.h*sn, h: bb.w*sn + bb.h*cs };
+}
+/* Hand-nested 3-sheet layout. Returns null (→ auto-pack fallback) whenever the
+   current proportions break one of its placements.
+   S1: back + sides (spooned 180° beside it when they fit, else one per sheet)
+       + the well divider tucked in the column.
+   S2: front + (floor, or the other side).
+   S3: roof panels with the ribs nested beneath, rail (and floor) on end. */
+function curatedSheets(parts) {
+  const g = 0.1;
+  const by = {};
+  parts.forEach(p => by[p.id] = { part: p, bb: partBBox(p) });
+  const req = ["back","front","sideL","sideR","floor","roofR","roofL","rib1","rib2","rail"];
+  if (req.some(id => !by[id])) return null;
+  const sheets = [];
+  let ok = true;
+  const mk = () => { const sh = { items: [] }; sheets.push(sh); return sh; };
+  const put = (sh, id, x, y, rot) => {
+    const e = by[id]; if (!e) return;
+    const r = rotBB(e.bb, rot);
+    if (x < -1e-6 || y < -1e-6 || x + r.w > USE_W + 1e-6 || y + r.h > USE_H + 1e-6) { ok = false; return; }
+    sh.items.push({ part: e.part, bb: e.bb, x, y, rot, w: r.w, h: r.h });
+  };
+  const sideBB = by.sideL.bb;
+  const sx = USE_W - sideBB.w, sy = USE_H - sideBB.h;
+  // gables taller than the cut window lie on their sides
+  const bRot = by.back.bb.h > USE_H + 1e-6 ? 90 : 0;
+  const fRot = by.front.bb.h > USE_H + 1e-6 ? 90 : 0;
+  const backW = rotBB(by.back.bb, bRot).w;
+  const frontW = rotBB(by.front.bb, fRot).w;
+  // 180°-spooned side pair interpenetrates by the porch depth; it must clear the back panel
+  const spoon = (sx - P.D - g) >= (backW + g);
+  const s1 = mk();
+  put(s1, "back", 0, 0, bRot);
+  put(s1, "sideL", sx, sy, 0);
+  if (spoon) put(s1, "sideR", sx - P.D - g, sy, 180);
+  if (by.wellDiv) put(s1, "wellDiv", backW + g, 0.15, 0);
+  const s2 = mk();
+  put(s2, "front", 0, 0, fRot);
+  if (spoon) put(s2, "floor", frontW + g, 0, 90);
+  else put(s2, "sideR", USE_W - sideBB.w, USE_H - sideBB.h, 0);
+  const s3 = mk();
+  let x3 = 0;
+  if (!spoon) { put(s3, "floor", 0, 0, 90); x3 = rotBB(by.floor.bb, 90).w + g; }
+  const rA = by.roofR.bb, rB = by.roofL.bb;
+  put(s3, "roofR", x3, 0, 0);
+  put(s3, "roofL", x3 + rA.w + g, 0, 0);
+  const roofsW = rA.w + g + rB.w;
+  const ry = Math.max(rA.h, rB.h) + g;
+  const b1 = by.rib1.bb, b2 = by.rib2.bb;
+  let xAfter = x3 + roofsW + g;
+  if (b1.w <= roofsW + 1e-6 && b2.w <= roofsW + 1e-6 && ry + b1.h + g + b2.h <= USE_H + 1e-6) {
+    put(s3, "rib1", x3, ry, 0);                     // both ribs nest beneath the roof panels
+    put(s3, "rib2", x3, ry + b1.h + g, 0);
+  } else if (b2.w <= roofsW + 1e-6 && ry + b2.h <= USE_H + 1e-6) {
+    put(s3, "rib2", x3, ry, 0);                     // big star-rib stands on end instead
+    put(s3, "rib1", xAfter, 0, 90);
+    xAfter += rotBB(b1, 90).w + g;
+  } else {
+    put(s3, "rib1", xAfter, 0, 90); xAfter += rotBB(b1, 90).w + g;
+    put(s3, "rib2", xAfter, 0, 90); xAfter += rotBB(b2, 90).w + g;
+  }
+  put(s3, "rail", xAfter, 0, 90);
+  return ok ? sheets : null;
+}
+function sheetSvgString(sheet, idx, forExport) {
+  let inner = "";
+  if (!forExport) inner += `<rect x="0" y="0" width="${SHEET_W}" height="${SHEET_H}" fill="#FFFFFF" stroke="#9C968A" stroke-width="0.02" stroke-dasharray="0.12 0.08"></rect>`;
+  for (const it of sheet.items) inner += partSvgGroup(it, forExport);
+  if (forExport) {
+    return `<?xml version="1.0" encoding="UTF-8"?>\n<!-- Mailbox Lab v${VERSION} · sheet ${idx+1} · Jewish Life Board -->\n` +
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${SHEET_W}in" height="${SHEET_H}in" viewBox="0 0 ${SHEET_W} ${SHEET_H}">${inner}</svg>`;
+  }
+  return inner;
+}
+function renderSheets() {
+  const curated = curatedSheets(currentParts);
+  const sheets = curated || packSheets(currentParts);
+  currentSheets = sheets;
+  const noteEl = document.querySelector("#sheetBar .note");
+  if (noteEl) noteEl.textContent =
+    `${curated ? "hand-nested layout" : "auto layout"} · true-size inches · black = cut · red = score · gray = engrave`;
+  const svg = document.getElementById("sheetSvg");
+  const gapPx = 0.4;
+  const totalH = sheets.length * (SHEET_H + gapPx);
+  svg.setAttribute("viewBox", `0 0 ${SHEET_W + 1} ${totalH}`);
+  svg.setAttribute("preserveAspectRatio", "xMidYMin meet");
+  svg.style.aspectRatio = `${SHEET_W + 1} / ${totalH}`;   // height tracks the pane width
+  svg.style.height = "auto";
+  let inner = "";
+  sheets.forEach((sh, i) => {
+    inner += `<g transform="translate(0.5 ${f(i*(SHEET_H+gapPx) + 0.2)})">` + sheetSvgString(sh, i, false) +
+      `<text x="0" y="-0.06" font-size="0.26" fill="#191919" font-family="Patrick Hand, sans-serif">Sheet ${i+1}</text></g>`;
+  });
+  svg.innerHTML = inner;
+  const btns = document.getElementById("sheetBtns");
+  btns.innerHTML = "";
+  sheets.forEach((sh, i) => {
+    const b = document.createElement("button");
+    b.className = "small";
+    b.textContent = "Sheet " + (i+1);
+    b.addEventListener("click", () => downloadSheet(i));
+    btns.appendChild(b);
+  });
+}
+function downloadSheet(i) {
+  const s = sheetSvgString(currentSheets[i], i, true);
+  const blob = new Blob([s], { type: "image/svg+xml" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `mailbox-sheet-${i+1}.svg`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+/* Minimal stored-ZIP writer — browsers only allow one download per click,
+   so "all sheets" ships as a single zip. */
+function crc32(u8) {
+  let table = crc32.table;
+  if (!table) {
+    table = crc32.table = new Int32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let cc = n;
+      for (let k = 0; k < 8; k++) cc = (cc & 1) ? (0xEDB88320 ^ (cc >>> 1)) : (cc >>> 1);
+      table[n] = cc;
+    }
+  }
+  let crc = -1;
+  for (let i = 0; i < u8.length; i++) crc = (crc >>> 8) ^ table[(crc ^ u8[i]) & 0xFF];
+  return (crc ^ -1) >>> 0;
+}
+function makeZip(files) {
+  const enc = new TextEncoder();
+  const u16 = v => [v & 255, (v >> 8) & 255];
+  const u32 = v => [v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >>> 24) & 255];
+  const DOSDATE = 0x5D08;   // fixed stamp; contents matter, dates don't
+  const chunks = [], central = [];
+  let offset = 0;
+  for (const fl of files) {
+    const name = enc.encode(fl.name), data = enc.encode(fl.data);
+    const crc = crc32(data);
+    const head = new Uint8Array([0x50,0x4B,3,4, ...u16(20), ...u16(0), ...u16(0),
+      ...u16(0), ...u16(DOSDATE), ...u32(crc), ...u32(data.length), ...u32(data.length),
+      ...u16(name.length), ...u16(0)]);
+    chunks.push(head, name, data);
+    central.push({ name, crc, size: data.length, offset });
+    offset += head.length + name.length + data.length;
+  }
+  const cdStart = offset;
+  for (const e of central) {
+    const rec = new Uint8Array([0x50,0x4B,1,2, ...u16(20), ...u16(20), ...u16(0), ...u16(0),
+      ...u16(0), ...u16(DOSDATE), ...u32(e.crc), ...u32(e.size), ...u32(e.size),
+      ...u16(e.name.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(e.offset)]);
+    chunks.push(rec, e.name);
+    offset += rec.length + e.name.length;
+  }
+  chunks.push(new Uint8Array([0x50,0x4B,5,6, ...u16(0), ...u16(0),
+    ...u16(central.length), ...u16(central.length), ...u32(offset - cdStart), ...u32(cdStart), ...u16(0)]));
+  return new Blob(chunks, { type: "application/zip" });
+}
+document.getElementById("btnAll").addEventListener("click", () => {
+  const files = currentSheets.map((sh, i) => ({ name: `mailbox-sheet-${i+1}.svg`, data: sheetSvgString(sh, i, true) }));
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(makeZip(files));
+  a.download = "mailbox-sheets.zip";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+});
+
+/* ---------------- warnings + notes ---------------- */
+function renderWarnings() {
+  const M = currentParts.meta;
+  const el = document.getElementById("warnings");
+  const warns = [];
+  if (M.fw < 5.15) warns.push(`Floor ${M.fw.toFixed(2)}" wide — 3×5 cards need ≥ 5.15" to lie flat. Widen the house.`);
+  if (M.bayW < 5.15) warns.push(`Card bay ${M.bayW.toFixed(2)}" — blank 3×5 cards need ≥ 5.15". Widen the house or narrow the pencil well.`);
+  if (P.RSL || P.RSR) {
+    if (M.SwEff < 3.1) warns.push(`Roof slot only ${M.SwEff.toFixed(2)}" — a card needs ≥ 3.1". Raise the roof peak or widen the house.`);
+    else if (P.Sw > M.SwEff + 0.001) warns.push(`Roof slot clamped to ${M.SwEff.toFixed(2)}" — that's all the slope has. Raise the roof peak for a longer slot.`);
+  } else {
+    if (P.Sw < 3.1) warns.push(`Mail slot ${P.Sw.toFixed(2)}" — even short-edge-first, a 3×5 card needs ≥ 3.1".`);
+    if (P.Sw > P.W - 1.2) warns.push(`Mail slot is nearly the full face — narrow it or widen the house.`);
+  }
+  if (P.Eng && engraveOverflow) warns.push(`Text pokes past the roof line — lower it (Raise text), shrink a line, or shorten the words.`);
+  if (P.Win && (P.D - M.T - 0.5) < 0.3) warns.push(`House too shallow for windows — deepen it past ${(M.T + 0.85).toFixed(1)}" or turn windows off.`);
+  if (P.WellOn && (P.Pd - M.T) <= 0.55) warns.push(`Porch too shallow for the pencil-well divider — it's been left out.`);
+  if (currentSheets.oversize && currentSheets.oversize.length) warns.push(`Some parts don't fit a sheet: ${currentSheets.oversize.map(i => i.part.name).join(", ")}.`);
+  el.innerHTML = warns.length
+    ? warns.map(w => `<div class="warn">⚠ ${w}</div>`).join("")
+    : `<div class="okay">All checks pass — cards fit, slots fit, every part fits the Spark bed.</div>`;
+  document.getElementById("statTotals").textContent =
+    `${currentParts.length} parts · ${currentSheets.length} sheets · finger count ${M.nV} · T=${(M.T).toFixed(3)}"`;
+}
+function renderNotes() {
+  const M = currentParts.meta;
+  document.getElementById("notesInner").innerHTML = `
+    <h2>Cut</h2>
+    <p>Material: Proofgrade <b>Light Cherry Plywood</b>, 8×12 sheets (set thickness to match — currently ${P.Tmm} mm).
+    In the Glowforge app: <b>black lines = Cut</b>, <b>red lines = Score</b> (the shingles), <b>gray fills = Engrave</b>. ${currentSheets.length} sheets total.</p>
+    <h2>Assemble</h2>
+    <ol>
+      <li><b>Dry-fit first.</b> If box joints are tight, that's right — they're drawn snug on purpose (Joint snugness = ${P.Fit.toFixed(3)}"). Sand lightly rather than forcing.</li>
+      <li><b>Spine first:</b> the floor's 2 back tabs into the <b>back</b> gable, then stand the <b>front</b> on the floor facing it — its side fingers hang free for now.</li>
+      ${P.WellOn && (P.Pd - M.T) > 0.55 ? `<li><b>Divider:</b> hook its back tab into the front panel at a slight tilt, then drop its bottom tabs into the floor.</li>` : ""}
+      <li><b>Rail:</b> drops straight down — bottom tabs into the floor${P.WellOn && (P.Pd - M.T) > 0.55 ? ", its open notch sliding over the divider's front flange" : ""}.</li>
+      <li><b>Sides last:</b> each side panel presses on from the outside — the front and back fingers, the floor tabs, and the rail's side tabs all seat in one motion. Square up before the glue sets.</li>
+      <li><b>Roof cap:</b> push the two <b>ribs'</b> tabs through the mortises in both <b>roof panels</b> — that locks the cap together at the right angle, no jig needed. Panel A's mortises sit lower so A overlaps panel B's edge in a clean point at the ridge; glue the ridge seam${P.RSL && P.RSR ? " (mail slots in both slopes)" : P.RSL ? " (the mail slot is in panel B)" : P.RSR ? " (the mail slot is in panel A)" : ""}. The tab ends poke through the roof like little through-tenons — sand flush or leave proud. Set the cap on the house; it lifts off for emptying.</li>
+      <li><b>Engraved face</b> forward, admire. Mail lands on the same continuous floor the porch uses${P.Win ? " — check the side windows to see it pile up" : ""}.</li>
+    </ol>
+    <h2>Mount</h2>
+    <p>The roof is flush with the back panel (overhang on the front only), so the whole back lies flat against the wall. ${P.Screw ? "Three screw holes in the back panel — screw straight into the wall (anchors in drywall), or" : "No screw holes —"} use 2–3 large Command strips on the flat back. Total weight is a few ounces plus cards, well within strip ratings.</p>
+    <div class="tip"><b>Stock the porch:</b> blank 3×5 cards leaning against the house in the bay, golf pencils ${P.WellOn && (P.Pd - M.T) > 0.55 ? "in the well pocket" : "lying along the tray"}. Kids write, drop through the ${P.RSL || P.RSR ? "roof" : "front"} slot, done.</div>
+    ${P.D < 3.2 ? `<div class="tip"><b>Shallow house:</b> at ${P.D}" deep, cards stand leaning inside rather than lying flat — they stack neatly against the walls and show nicely in the windows.</div>` : ""}
+    <div class="tip"><b>If the roof cap feels loose</b> once kids discover it: glue a small magnet inside each gable and matching ones on the ribs — no design change needed.</div>`;
+}
+
+/* ---------------- controls wiring ---------------- */
+const FIELDS = [
+  ["pW","W"],["pD","D"],["pHW","HW"],["pHP","HP"],["pOh","Oh"],
+  ["pSw","Sw"],["pSh","Sh"],["pTs","Ts"],["pTs2","Ts2"],["pTy","Ty"],["pPd","Pd"],["pLh","Lh"],
+  ["pCw","Cw"],["pWinZ","WinZ"],["pWinX","WinX"],["pTmm","Tmm"],["pFin","Fin"],["pFit","Fit"]
+];
+function syncInputs() {
+  for (const [id,key] of FIELDS) {
+    document.getElementById(id).value = P[key];
+    const r = document.getElementById(id+"_r");
+    if (r) r.value = P[key];
+  }
+  document.getElementById("pT1").value = P.T1;
+  document.getElementById("pT2").value = P.T2;
+  document.getElementById("pEng").checked = P.Eng;
+  document.getElementById("pScrew").checked = P.Screw;
+  document.getElementById("pWin").checked = P.Win;
+  document.getElementById("pRSL").checked = P.RSL;
+  document.getElementById("pRSR").checked = P.RSR;
+  document.getElementById("pWellOn").checked = P.WellOn;
+  for (const [id, key] of [["pBal","Bal"],["pShg","Shg"],["pMez","Mez"],["pStar","Star"],["pProps","Props"],["pCPort","CPort"]])
+    document.getElementById(id).checked = P[key];
+  document.getElementById("pCAlign").value = P.CAlign;
+}
+for (const [id,key] of FIELDS) {
+  const n = document.getElementById(id), r = document.getElementById(id+"_r");
+  n.addEventListener("input", () => { const v = parseFloat(n.value); if (!isNaN(v)) { P[key] = v; if (r) r.value = v; rebuild(); } });
+  if (r) r.addEventListener("input", () => { P[key] = parseFloat(r.value); n.value = r.value; rebuild(); });
+}
+document.getElementById("pT1").addEventListener("input", e => { P.T1 = e.target.value; rebuild(); });
+document.getElementById("pT2").addEventListener("input", e => { P.T2 = e.target.value; rebuild(); });
+document.getElementById("pEng").addEventListener("change", e => { P.Eng = e.target.checked; rebuild(); });
+document.getElementById("pScrew").addEventListener("change", e => { P.Screw = e.target.checked; rebuild(); });
+document.getElementById("pWin").addEventListener("change", e => { P.Win = e.target.checked; rebuild(); });
+document.getElementById("pRSL").addEventListener("change", e => { P.RSL = e.target.checked; rebuild(); });
+document.getElementById("pRSR").addEventListener("change", e => { P.RSR = e.target.checked; rebuild(); });
+document.getElementById("pWellOn").addEventListener("change", e => { P.WellOn = e.target.checked; rebuild(); });
+for (const [id, key] of [["pBal","Bal"],["pShg","Shg"],["pMez","Mez"],["pStar","Star"],["pProps","Props"],["pCPort","CPort"]])
+  document.getElementById(id).addEventListener("change", e => { P[key] = e.target.checked; rebuild(); });
+document.getElementById("pCAlign").addEventListener("change", e => { P.CAlign = e.target.value; rebuild(); });
+document.getElementById("btnReset").addEventListener("click", () => { P = Object.assign({}, DEFAULTS); syncInputs(); rebuild(); });
+
+/* tabs */
+document.querySelectorAll(".tabs button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tabs button").forEach(b => b.setAttribute("aria-selected", "false"));
+    btn.setAttribute("aria-selected", "true");
+    document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+    document.getElementById(btn.dataset.view).classList.add("active");
+    if (btn.dataset.view === "view3d") render3d();
+  });
+});
+
+/* ---------------- boot ---------------- */
+let currentParts = null, currentSheets = [];
+function rebuild() {
+  currentParts = buildParts();
+  renderSheets();
+  renderWarnings();
+  renderNotes();
+  render3d();
+  saveParams();
+}
+function boot() {
+  try {
+    const b64 = "__AMATIC_B64__";
+    const bin = atob(b64);
+    const buf = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+    amaticFont = opentype.parse(buf.buffer);
+  } catch (e) {
+    console.warn("Amatic font failed to load — engraving disabled", e);
+  }
+  document.getElementById("verTag").textContent = "Mailbox Lab v" + VERSION;
+  syncInputs();
+  rebuild();
+}
+window.addEventListener("resize", render3d);
+boot();
+</script>
+</body>
+</html>
