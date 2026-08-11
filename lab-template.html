@@ -308,7 +308,7 @@
    Mortises are undersized by "fit" to counter the kerf the laser removes.
    ===================================================================== */
 
-const VERSION = "0.10.3";
+const VERSION = "0.10.2";
 const PARAM_SCHEMA = 7;   // bump when defaults should override older saves
 /* Dan's artwork, normalized at build time:
    STAR_D — star-circle window on a unit circle (bridges pre-thickened);
@@ -961,18 +961,14 @@ function render3d() {
     }
     if (part.engraveExtra) eng += `<path d="${part.engraveExtra}" fill="#6B4F27" stroke="none" fill-rule="evenodd"></path>`;
     if (part.scoreD) eng += `<path d="${part.scoreD}" fill="none" stroke="#9A7448" stroke-width="0.015"></path>`;
-    // two-pass painter: panels whose outward normal points away from the
-    // camera (seen from their back side, e.g. interior walls) draw first,
-    // so a large near panel can never bury a part it doesn't cover.
     items.push({
       depth: cd,
-      back: nR[1] > 0.02,
       html: `<g transform="matrix(${a} ${b} ${c} ${d} ${e} ${ff})">` +
             `<path d="${dstr}" fill="${wood}" stroke="#191919" stroke-width="${1.4/scale}" fill-rule="evenodd" vector-effect="non-scaling-stroke"></path>` +
             eng + `</g>`
     });
   }
-  items.sort((p,q) => (p.back !== q.back) ? (p.back ? -1 : 1) : q.depth - p.depth);
+  items.sort((p,q) => q.depth - p.depth);
   svg3d.innerHTML = `<rect width="100%" height="100%" fill="#FAF7F0"></rect>` + items.map(i => i.html).join("");
 }
 function cross3(a,b){ return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]]; }
